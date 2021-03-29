@@ -153,7 +153,9 @@ private:
    *
    * @todo Consider making this private
    */
-  bool requestTopic(const std::string &topic, XmlRpc::XmlRpcValue &protos, XmlRpc::XmlRpcValue &ret);
+  bool requestTopic(const std::string &topic, XmlRpc::XmlRpcValue &protos, XmlRpc::XmlRpcValue &ret
+                    , bool uds_flag=false
+                    );
 
   // Must lock the advertised topics mutex before calling this function
   bool isTopicAdvertised(const std::string& topic);
@@ -212,6 +214,7 @@ private:
 
   void pubUpdateCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
   void requestTopicCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
+  void requestTopicUdsCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
   void getBusStatsCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
   void getBusInfoCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
   void getSubscriptionsCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result);
