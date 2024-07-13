@@ -441,10 +441,10 @@ class TCPROSServer(object):
     
         @param sock: socket connection
         @type  sock: socket.socket
-       @param client_addr: client address
-       @type  client_addr: (str, int)
-       @raise TransportInitError: If transport cannot be successfully initialized
-       """
+        @param client_addr: client address
+        @type  client_addr: (str, int)
+        @raise TransportInitError: If transport cannot be successfully initialized
+        """
         # TODOXXX:rewrite this logic so it is possible to create TCPROSTransport object first, set its protocol,
         # and then use that to do the writing
         try:
@@ -470,7 +470,7 @@ class TCPROSServer(object):
                 # hooks.
                 if not rospy.core.is_shutdown_requested():
                     write_ros_handshake_header(sock, {'error': err_msg})
-                    raise TransportInitError("Could not process inbound connection: " + err_msg + str(header))
+                    raise TransportInitError("Could not process inbound connection: "+str(err_msg)+str(header))
                 else:
                     write_ros_handshake_header(sock, {'error': 'node shutting down'})
                     return
@@ -521,7 +521,7 @@ class TCPROSServer(object):
                 # hooks.
                 if not rospy.core.is_shutdown_requested():
                     write_ros_handshake_header(sock, {'error' : err_msg})
-                    raise TransportInitError("Could not process inbound connection: "+err_msg+str(header))
+                    raise TransportInitError("Could not process inbound connection: "+str(err_msg)+str(header))
                 else:
                     write_ros_handshake_header(sock, {'error' : 'node shutting down'})
                     return
@@ -533,7 +533,7 @@ class TCPROSServer(object):
             # collect stack trace separately in local log file
             if not rospy.core.is_shutdown_requested():
                 # ignore case that remote connection closed immediately while service client request with 'probe'
-                if e[0] != errno.EPIPE:
+                if e.args[0] != errno.EPIPE:
                     logwarn("Inbound UDS connection failed: %s", e)
                     rospyerr("Inbound UDS connection failed:\n%s", traceback.format_exc())
             if sock is not None:
@@ -834,7 +834,7 @@ class TCPROSTransport(Transport):
         sock = self.socket
         if sock is None:
             return
-        sock.setblocking(1)
+        sock.setblocking(True)
         # TODO: add bytes received to self.stat_bytes
         self._validate_header(read_ros_handshake_header(sock, self.read_buff, self.protocol.buff_size))
                 
@@ -871,15 +871,7 @@ class TCPROSTransport(Transport):
             self.socket.sendall(data)
             self.stat_bytes  += len(data)
             self.stat_num_msg += 1
-        except IOError as ioe:
-            #for now, just document common errno's in code
-            (ioe_errno, msg) = ioe.args
-            if ioe_errno == errno.EPIPE: #broken pipe
-                logdebug("ERROR: Broken Pipe")
-                self.close()
-                raise TransportTerminated(str(ioe_errno)+msg)
-            raise #re-raise
-        except socket.error as se:
+        except OSError as se:
             #for now, just document common errno's in code
             (se_errno, msg) = se.args
             if se_errno == errno.EPIPE: #broken pipe
@@ -992,7 +984,7 @@ class TCPROSTransport(Transport):
                     try:
                         if self.socket is not None:
                             try:
-                                self.socket.shutdown()
+                                self.socket.shutdown(socket.SHUT_RDWR)
                             except:
                                 pass
                             finally:
@@ -1233,7 +1225,7 @@ class TCPROSUDSTransport(Transport):
                     raise
 
         logger.debug("[%s]: writing header", self.name)
-        sock.setblocking(1)
+        sock.setblocking(True)
         self.stat_bytes += write_ros_handshake_header(sock, protocol.get_header_fields())
         if poller:
             poller.unregister(fileno)
@@ -1282,22 +1274,14 @@ class TCPROSUDSTransport(Transport):
             self.socket.sendall(data)
             self.stat_bytes += len(data)
             self.stat_num_msg += 1
-        except IOError as ioe:
+        except OSError as se:
             # for now, just document common errno's in code
-            (errno, msg) = ioe.args
-            if errno == 32:  # broken pipe
-                logdebug("ERROR: Broken Pipe")
-                self.close()
-                raise TransportTerminated(str(errno) + msg)
-            raise  # re-raise
-        except socket.error as se:
-            # for now, just document common errno's in code
-            (errno, msg) = se.args
-            if errno == 32:  # broken pipe
+            (se_errno, msg) = se.args
+            if se_errno == errno.EPIPE: #broken pipe
                 logdebug("[%s]: Closing connection [%s] due to broken pipe", self.name, self.endpoint_id)
                 self.close()
                 raise TransportTerminated(msg)
-            elif errno == 104:  # connection reset by peer
+            elif se_errno == errno.ECONNRESET: #connection reset by peer
                 logdebug("[%s]: Peer [%s] has closed connection", self.name, self.endpoint_id)
                 self.close()
                 raise TransportTerminated(msg)
@@ -1306,7 +1290,7 @@ class TCPROSUDSTransport(Transport):
                 logdebug("[%s]: closing connection [%s] due to unknown socket error: %s", self.name, self.endpoint_id,
                          msg)
                 self.close()
-                raise TransportTerminated(str(errno) + ' ' + msg)
+                raise TransportTerminated(str(se_errno) + ' ' + msg)
         return True
 
     def receive_once(self):
@@ -1398,7 +1382,7 @@ class TCPROSUDSTransport(Transport):
                     try:
                         if self.socket is not None:
                             try:
-                                self.socket.shutdown()
+                                self.socket.shutdown(socket.SHUT_RDWR)
                             except:
                                 pass
                             finally:
@@ -1442,3 +1426,4 @@ class TCPROSUDSTransport(Transport):
             finally:
                 self.socket = self.read_buff = self.write_buff = self.protocol = None
                 super(TCPROSUDSTransport, self).close()
+                
